@@ -24,6 +24,7 @@ import com.example.demoges_parking.model.SalidaRes
 import com.example.demoges_parking.model.SalidaResponseDTO
 import com.example.demoges_parking.model.TarifaRequest
 import com.example.demoges_parking.model.TarifaResponse
+import com.example.demoges_parking.model.VehiculosRecibidosResponse
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -90,5 +91,9 @@ interface ApiService {
 
     @GET("cierre/ultimoPorTurno")
     suspend fun obtenerUltimoCierrePorTurno(@Query("turno") turno: Int): Response<CierreData>
+
+    @GET("cierre/vehiculos-recibidos/{numeroTurno}")
+    suspend fun obtenerVehiculosRecibidos(@Path("numeroTurno") numeroTurno: Int): Response<VehiculosRecibidosResponse>
+
 
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,11 +27,10 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -102,16 +102,18 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequesterObservaciones = remember { FocusRequester() }
-    val snackbarHostState = remember { SnackbarHostState() }
+
     val data by ingresoViewModel.dataIngresada.collectAsState()
     val turnoFinalizado by sessionViewModel.turnoFinalizado.collectAsState()
 
     val mostrarDialogo by ingresoViewModel.mostrarDialogo.collectAsState()
+    var showErrorDialog by remember { mutableStateOf<String?>(null) }
+
 
     ingresoViewModel.actualizarTurno(sessionData.turno)
     ingresoViewModel.actualizarNumeroTurno(sessionData.numeroTurno)
     ingresoViewModel.actualizarEmpleado(sessionData.nombreCompleto)
-    
+
     val activity = context as? Activity
 
     LaunchedEffect(Unit) {
@@ -153,19 +155,11 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
         ingresoViewModel.uiMessage.collect { msg ->
             when (msg) {
                 is UiMessage.Error -> {
-                    snackbarHostState.showSnackbar(msg.message)
+                    showErrorDialog = msg.message
                 }
 
                 is UiMessage.Success -> {
                     ingresoViewModel.mostrarDialogo()
-
-                    // Imprimir si hay datos listos
-                    try {
-                        data?.let { printViewModel.imprimirIngreso(context, it) }
-                    } catch (e: Exception) {
-                        Log.e("Impresión", "Error al imprimir: ${e.message}")
-                        snackbarHostState.showSnackbar("No se pudo imprimir")
-                    }
                 }
             }
         }
@@ -192,8 +186,7 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
                 }
             )
         },
-        //Aquí va el snackbar
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+
     ){ innerPadding ->
         Column (
             modifier = Modifier.fillMaxSize()
@@ -392,6 +385,11 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
                 },
                 enabled = !turnoFinalizado,
                 modifier = Modifier.fillMaxWidth()
+                    .size(50.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 18.sp, // 👈 Tamaño aumentado
+                    fontWeight = FontWeight.Bold
+                )
             )
         }
 
@@ -416,5 +414,17 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
             )
         }
 
+        if (showErrorDialog != null) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = null },
+                title = { Text("Aviso") },
+                text = { Text(showErrorDialog ?: "") },
+                confirmButton = {
+                    TextButton(onClick = { showErrorDialog = null }) {
+                        Text("Aceptar")
+                    }
+                }
+            )
+        }
     }
 }

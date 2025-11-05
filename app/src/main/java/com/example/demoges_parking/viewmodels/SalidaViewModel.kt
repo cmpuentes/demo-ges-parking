@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.demoges_parking.model.SalidaDTO
 import com.example.demoges_parking.model.SalidaPlacaReq
 import com.example.demoges_parking.model.SalidaReq
 import com.example.demoges_parking.model.SalidaRes
@@ -202,12 +201,17 @@ class SalidaViewModel: ViewModel() {
 
     //Método para actualizar numero de recibo
     fun actualizarNumeroRecibo(input: String) {
-        val valor = input.ifBlank { "0" }.toIntOrNull() ?: 0
+        // Si el usuario borra todo, mantenemos 0 por defecto
+        val valor = input.toIntOrNull() ?: 0
         _numerorecibo.value = valor
 
-        // Si el valor es mayor a 0, llamamos a la función de cálculo
+        // Solo hacemos el cálculo si el valor es > 0 y las dependencias ya están listas
         if (valor > 0) {
-            calcularValorConDescuento()
+            try {
+                calcularDescuento()
+            } catch (e: Exception) {
+                Log.e("SalidaViewModel", "Error en cálculo: ${e.message}")
+            }
         }
     }
 
@@ -679,48 +683,54 @@ class SalidaViewModel: ViewModel() {
         _total.value = 0
     }
 
-    fun calcularValorConDescuento(){
+    fun calcularDescuento() {
+        val dias = _dias.value
+        var horas = _horas.value.toLong()
+        var minutos = _minutos.value.toLong()
+        val tarifa = _tarifa.value ?: return
 
-        var diasVar = _dias.value
-        var horasVar = _horas.value
-        var minutosVar = _minutos.value
-        var costoPorDias = 0
-        var costoPorHoras = 0
-        val descuentoRecibo = _tarifa.value?.descuentorecibo
-        val precio12h = tarifa.value?.precio12h
+        val descuentoRecibo = tarifa.descuentorecibo
+        val precioHoras = tarifa.preciohoras
 
-
-        if (diasVar > 0) {
-            if (descuentoRecibo != null) {
-                costoPorDias = (descuentoRecibo * 2) * diasVar
-            }
+        if (descuentoRecibo <= 0 || precioHoras <= 0) {
+            _message.value = "Los precios obtenidos no son válidos"
+            return
         }
 
-        if (horasVar > 0 || minutosVar > 0) {
-            if (minutosVar >= 15) {
-                horasVar++
-                minutosVar = 0
-            }
+        var costoPorDias = 0.0
+        var costoPorHoras = 0.0
 
-            if (horasVar >= 24) {
-                val diasExtras = horasVar / 24
-                diasVar += diasExtras
-                horasVar %= 24
-            }
-
-            if (precio12h != null) {
-                costoPorHoras = precio12h * horasVar
-            }
+        if (dias > 0) {
+            costoPorDias = (descuentoRecibo * 2.0) * dias
         }
 
-        if (costoPorHoras > descuentoRecibo!!) {
-            costoPorHoras = descuentoRecibo
+        if (horas > 0 || minutos > 0) {
+            if (minutos >= 15) {
+                horas++
+                minutos = 0
+            }
+            if (horas >= 24) {
+                val diasExtras = horas / 24
+                val horasRestantes = horas % 24
+                horas = horasRestantes
+                // aumentamos los días
+                costoPorDias += (descuentoRecibo * 2.0) * diasExtras
+            }
+
+            costoPorHoras = (precioHoras * horas).toDouble()
         }
 
-        _descuento.value = costoPorDias + costoPorHoras
-        _subtotal.value = _costoTotal.value - _descuento.value
+        if (costoPorHoras > descuentoRecibo) {
+            costoPorHoras = descuentoRecibo.toDouble()
+        }
 
+        val costoTotal = costoPorDias + costoPorHoras
+        val descuentoAplicado = (tarifa.precio12h - tarifa.descuentorecibo).coerceAtLeast(0)
+        _descuento.value = descuentoAplicado
+        _subtotal.value = costoTotal.toInt()
     }
+
+
 
     fun limpiarSalidaImpresion() {
         _salidaImpresion.value = null

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,12 +26,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +46,7 @@ import com.example.demoges_parking.components.SpacerW
 import com.example.demoges_parking.model.UiMessage
 import com.example.demoges_parking.viewmodels.ConsultaVehiculoViewModel
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -58,7 +62,8 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
     val consultaResponse by viewModel.consultaResponse.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    var showMessageDialog by remember { mutableStateOf<String?>(null) }
+
     val coroutineScope = rememberCoroutineScope() // << Necesario para el showSnackbar
     val focusManager = LocalFocusManager.current
 
@@ -68,8 +73,8 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
     LaunchedEffect(Unit) {
         viewModel.uiMessage.collect { msg ->
             when (msg) {
-                is UiMessage.Error -> snackbarHostState.showSnackbar(msg.message)
-                is UiMessage.Success -> snackbarHostState.showSnackbar(msg.message)
+                is UiMessage.Error -> showMessageDialog = msg.message
+                is UiMessage.Success -> showMessageDialog = msg.message
             }
         }
     }
@@ -95,7 +100,6 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
     ){ padding ->
         Column (
             modifier = Modifier
@@ -116,11 +120,9 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
                     IconButton(onClick = {
                         if (placa.isNotBlank()) {
                             viewModel.consultarVehiculo()
-                            focusManager.clearFocus() // Oculta teclado
+                            focusManager.clearFocus()
                         } else {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Ingresa una placa")
-                            }
+                            showMessageDialog = "Ingresa una placa"
                         }
                     }) {
                         Icon(Icons.Default.Search, contentDescription = "Buscar")
@@ -132,11 +134,9 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
                     onDone = {
                         if (placa.isNotBlank()) {
                             viewModel.consultarVehiculo()
-                            focusManager.clearFocus() // Oculta teclado
+                            focusManager.clearFocus()
                         } else {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Ingresa una placa")
-                            }
+                            showMessageDialog = "Ingresa una placa"
                         }
                     }
                 )
@@ -179,6 +179,18 @@ fun ConsultaVehiculoScreen(navController: NavController, viewModel: ConsultaVehi
                     }
                 }
             }
+        }
+        if (showMessageDialog != null) {
+            AlertDialog(
+                onDismissRequest = { showMessageDialog = null },
+                title = { Text("Aviso") },
+                text = { Text(showMessageDialog ?: "") },
+                confirmButton = {
+                    TextButton(onClick = { showMessageDialog = null }) {
+                        Text("Aceptar")
+                    }
+                }
+            )
         }
     }
 }

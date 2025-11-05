@@ -100,6 +100,4 @@ class SessionViewModel(application: Application): AndroidViewModel(application) 
             )
         }
     }
-
-
 }

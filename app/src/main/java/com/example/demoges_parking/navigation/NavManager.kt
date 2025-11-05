@@ -15,6 +15,7 @@ import com.example.demoges_parking.screens.LoginScreen
 import com.example.demoges_parking.screens.ResumenTurnoScreen
 import com.example.demoges_parking.screens.SalidaScreen
 import com.example.demoges_parking.screens.VehiculosActivosScreen
+import com.example.demoges_parking.viewmodels.CierreViewModel
 import com.example.demoges_parking.viewmodels.SessionViewModel
 
 @Composable
@@ -80,7 +81,12 @@ fun NavManager(){
 
         composable(Routes.RESUMEN) {
             val sessionViewModel: SessionViewModel = viewModel()
-            ResumenTurnoScreen(navController = navController, sessionViewModel = sessionViewModel)
+            val cierreViewModel: CierreViewModel = viewModel()
+            ResumenTurnoScreen(
+                navController = navController,
+                sessionViewModel = sessionViewModel,
+                cierreViewModel = cierreViewModel
+            )
         }
     }
 }

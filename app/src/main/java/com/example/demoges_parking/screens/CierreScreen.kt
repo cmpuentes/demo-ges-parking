@@ -4,9 +4,12 @@ import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -34,8 +38,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -77,7 +83,9 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
     val fechainicio by viewModel.fechaDeInicio.collectAsState()
     val fechasalida by viewModel.fechaDeSalida.collectAsState()
     val empleadocierre by viewModel.empleadoCierre.collectAsState()
+
     val vehiculosrecibidos by viewModel.vehiculosRecibidos.collectAsState()
+
     val totalvehiculos by viewModel.totalVehiculos.collectAsState()
     val base by viewModel.base.collectAsState()
     val totalefectivo by viewModel.totalEfectivo.collectAsState()
@@ -94,13 +102,15 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
     val turnoFinalizado by sessionViewModel.turnoFinalizado.collectAsState()
 
     val scrollState = rememberScrollState()
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     val nombreSessoion = sessionData.nombreCompleto  // ✅ CORRECTO
     val turnoSession = sessionData.turno
     val numeroTurnoSession = sessionData.numeroTurno
     val fechainicioSession = sessionData.fechaInicio
+
+    var mostrarAlerta by remember { mutableStateOf(false) }
+    var mensajeAlerta by remember { mutableStateOf("") }
 
     viewModel.actualizarNumeroDeTurno(numeroTurnoSession)
     viewModel.actualizarTurnoCierre(turnoSession)
@@ -136,6 +146,16 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
 
     val cierreExitoso by viewModel.cierreExitoso.collectAsState()
 
+    LaunchedEffect(numeroTurnoSession) {
+        if (numeroTurnoSession > 0) {
+            Log.d("CIERRE_DEBUG", "Número de turno válido detectado: $numeroTurnoSession")
+            viewModel.cargarVehiculosRecibidos(numeroTurnoSession)
+        } else {
+            Log.d("CIERRE_DEBUG", "Esperando número de turno válido...")
+        }
+    }
+
+
     LaunchedEffect(cierreExitoso) {
         if (cierreExitoso) {
             sessionViewModel.marcarTurnoFinalizado()
@@ -159,14 +179,23 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
     LaunchedEffect(message) {
         val msg = message
         if (msg.isNotBlank()) {
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = msg,
-                    duration = SnackbarDuration.Short
-                )
-                viewModel.limpiarMensaje() // 👈 Limpia el mensaje para no repetirlo
-            }
+            mensajeAlerta = msg
+            mostrarAlerta = true
+            viewModel.limpiarMensaje()
         }
+    }
+
+    if (mostrarAlerta) {
+        AlertDialog(
+            onDismissRequest = { mostrarAlerta = false },
+            title = { Text("Aviso") },
+            text = { Text(mensajeAlerta) },
+            confirmButton = {
+                TextButton(onClick = { mostrarAlerta = false }) {
+                    Text("Aceptar")
+                }
+            }
+        )
     }
 
     Scaffold (
@@ -189,9 +218,6 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
                     }
                 }
             )
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
         }
     ){innerpadding ->
         Column (
@@ -299,50 +325,67 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
                     )
                 }
             }
-            Row (
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ){
-                OutlinedTextField(
-                    value = vehiculosrecibidos,
-                    onValueChange = {viewModel.actualizarVehiculosRecibidos(it.trim())},
-                    label = { Text("Recibidos") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions.Default.copy(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus() }
-                    ),
-                    singleLine = true
-                )
-                SpacerW(8.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary)
-                ){
-                    Column (
+                ) {
+                    Column(
                         modifier = Modifier
-                            .padding(8.dp)
+                            .padding(12.dp)
                             .fillMaxWidth(),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.Center
-                    ){
+                        horizontalAlignment = Alignment.Start
+                    ) {
                         Text(
-                            text = "Total Vehículos: $totalvehiculos",
-                            color = Color.Black,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Vehículos ingresados en turno",
+                            fontSize = 14.sp,
+                            color = Color.DarkGray
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = vehiculosrecibidos.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = "Vehículos en parqueadero",
+                            fontSize = 14.sp,
+                            color = Color.DarkGray
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = totalvehiculos.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
                         )
                     }
                 }
             }
+
             SpacerH(15.dp)
             OutlinedTextField(
                 value = base,
@@ -510,10 +553,15 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
                 backColor = MaterialTheme.colorScheme.primary,
                 textColor = Color.White,
                 onClick = {
-                    viewModel.abrirDialogoConfirmacion()
+                    viewModel.validarYCerrarTurno()
                 },
-                enabled = !turnoFinalizado, // 🔹 Deshabilita si el turno está finalizado
+                enabled = !turnoFinalizado,
                 modifier = Modifier.fillMaxWidth()
+                    .size(50.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 18.sp, // 👈 Tamaño aumentado
+                    fontWeight = FontWeight.Bold
+                ),
             )
 
             if (mostrarDialogo) {
@@ -536,7 +584,6 @@ fun CierreScreen(navController: NavController, sessionViewModel: SessionViewMode
                     }
                 )
             }
-
         }
     }
 }

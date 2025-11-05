@@ -8,6 +8,7 @@ import com.example.demoges_parking.model.CierreRegistroRequest
 import com.example.demoges_parking.model.CierreRequest
 import com.example.demoges_parking.model.CierreResponseDTO
 import com.example.demoges_parking.network.ApiClient
+import com.example.demoges_parking.network.ApiService
 import com.example.demoges_parking.utils.obtenerFechaActual
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,9 +44,9 @@ class CierreViewModel: ViewModel() {
     private val _cierreEnviado = MutableStateFlow(false)
     val cierreEnviado: StateFlow<Boolean> = _cierreEnviado
 
-    private val _vehiculosRecibidos = MutableStateFlow("0")
-    val vehiculosRecibidos: StateFlow<String> = _vehiculosRecibidos
-    private var vehiculosRecibidosInt = 0
+    private val _vehiculosRecibidos = MutableStateFlow(0)
+    val vehiculosRecibidos: StateFlow<Int> = _vehiculosRecibidos
+
 
     private val _base = MutableStateFlow("0")
     val base: StateFlow<String> = _base
@@ -136,9 +137,8 @@ class CierreViewModel: ViewModel() {
         _totalVehiculos.value = totalvehiculos
     }
 
-    fun actualizarVehiculosRecibidos(vehiculosrecibidos: String){
+    fun actualizarVehiculosRecibidos(vehiculosrecibidos: Int){
         _vehiculosRecibidos.value = vehiculosrecibidos
-        vehiculosRecibidosInt = vehiculosrecibidos.toIntOrNull() ?: 0
     }
 
     fun actualizarBase(base: String){
@@ -244,7 +244,7 @@ class CierreViewModel: ViewModel() {
             val empleado = _empleado.value
             val fechaInicio = _fechadeInicio.value
             val fechaSalida = _fechaDeSalida.value
-            val recibidos = vehiculosRecibidosInt
+            val recibidos = _vehiculosRecibidos.value
             val totalVehiculos = _totalVehiculos.value
             val base = baseInt
             val efectivo = _totalEfectivo.value
@@ -259,7 +259,7 @@ class CierreViewModel: ViewModel() {
             // Validación de campos requeridos y válidos
             if (
                 turno.isBlank() || numeroTurno == 0 || empleado.isBlank() || fechaInicio.isBlank() || fechaSalida.isBlank()
-                || recibidos < 0 || totalVehiculos < 0 || base < 0 || efectivo < 0 || tarjeta < 0
+                || totalVehiculos < 0 || base < 0 || efectivo < 0 || tarjeta < 0
                 || transferencia < 0 || efectivoLiquido < 0 || totalRecaudado < 0 || observaciones.isBlank()
                 || totalAbonos < 0
             ) {
@@ -322,6 +322,57 @@ class CierreViewModel: ViewModel() {
                 _totalTarjetaAbono.value + _totalTransferenciaAbono.value
     }
 
+    fun validarYCerrarTurno() {
+        val turno = _turnoCierre.value
+        val numeroTurno = _numeroDeTurno.value
+        val empleado = _empleado.value
+        val fechaInicio = _fechadeInicio.value
+        val fechaSalida = _fechaDeSalida.value
+        val recibidos = _vehiculosRecibidos.value
+        val totalVehiculos = _totalVehiculos.value
+        val base = baseInt
+        val efectivo = _totalEfectivo.value
+        val tarjeta = _totalTarjeta.value
+        val transferencia = _totalTransferencia.value
+        val otrosIngresos = otrosIngresosInt
+        val efectivoLiquido = _efectivoLiquido.value
+        val totalRecaudado = _totalRecaudado.value
+        val observaciones = _observaciones.value
+        val totalAbonos = _totalAbonos.value
+
+        if (
+            turno.isBlank() || numeroTurno == 0 || empleado.isBlank() || fechaInicio.isBlank() || fechaSalida.isBlank()
+            || recibidos < 0 || totalVehiculos < 0 || base < 0 || efectivo < 0 || tarjeta < 0
+            || transferencia < 0 || efectivoLiquido < 0 || totalRecaudado < 0 || observaciones.isBlank()
+            || totalAbonos < 0
+        ) {
+            _message.value = "Todos los campos son requeridos y deben ser válidos"
+            return
+        }
+
+        // Si pasa la validación, muestra el diálogo de confirmación
+        abrirDialogoConfirmacion()
+    }
+
+    fun cargarVehiculosRecibidos(numeroTurno: Int) {
+        viewModelScope.launch {
+            try {
+                val response = ApiClient.apiService.obtenerVehiculosRecibidos(numeroTurno)
+                if (response.isSuccessful) {
+                    val cantidad = response.body()?.vehiculosRecibidos ?: 0
+                    _vehiculosRecibidos.value = cantidad
+
+                } else {
+                    _message.value = "No se pudo obtener los vehículos recibidos"
+                }
+            } catch (e: Exception) {
+                _message.value = "Error de conexión al obtener vehículos recibidos"
+            }
+        }
+    }
+
+
+
     fun limpiarMensaje() {
         _message.value = ""
     }
@@ -332,8 +383,7 @@ class CierreViewModel: ViewModel() {
 
     fun limpiarCampos(){
         _totalVehiculos.value = 0
-        _vehiculosRecibidos.value = ""
-        vehiculosRecibidosInt = 0
+        _vehiculosRecibidos.value = 0
         _base.value = ""
         baseInt = 0
         _otrosIngresos.value = ""

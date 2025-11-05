@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,13 +47,14 @@ import com.example.demoges_parking.components.InfoRow
 import com.example.demoges_parking.components.SpacerH
 import com.example.demoges_parking.navigation.Routes
 import com.example.demoges_parking.network.ApiClient
+import com.example.demoges_parking.viewmodels.CierreViewModel
 import com.example.demoges_parking.viewmodels.PrintViewModel
 import com.example.demoges_parking.viewmodels.ResumenTurnoViewModel
 import com.example.demoges_parking.viewmodels.SessionViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResumenTurnoScreen(navController: NavController, sessionViewModel: SessionViewModel){
+fun ResumenTurnoScreen(navController: NavController, sessionViewModel: SessionViewModel, cierreViewModel: CierreViewModel){
 
     val printViewModel: PrintViewModel = viewModel()
     val context = LocalContext.current
@@ -65,6 +70,9 @@ fun ResumenTurnoScreen(navController: NavController, sessionViewModel: SessionVi
     val mensaje by viewModel.mensaje.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val cierreParaImprimir by viewModel.cierreParaImprimir.collectAsState()
+    val totalAbonos by cierreViewModel.totalAbonos.collectAsState()
+
+    var showMessageDialog by remember { mutableStateOf<String?>(null) }
 
     val sesion by sessionViewModel.sessionData.collectAsState()
     val turno = sesion.numeroTurno
@@ -143,6 +151,8 @@ fun ResumenTurnoScreen(navController: NavController, sessionViewModel: SessionVi
                             InfoRow("Inicio", sesion.fechaInicio)
 
                             Divider(modifier = Modifier.padding(vertical = 8.dp))
+                            InfoRow("Total abonos", "$${totalAbonos}")
+                            Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                             InfoRow("Vehículos salieron", it.vehiculosSalida.toString())
                             InfoRow("Total efectivo", "$${it.efectivo}")
@@ -154,17 +164,22 @@ fun ResumenTurnoScreen(navController: NavController, sessionViewModel: SessionVi
                 } ?: Text("No se encontró información.")
             }
 
-            mensaje?.let {
-                Snackbar(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    action = {
-                        TextButton(onClick = { viewModel.limpiarMensaje() }) {
-                            Text("Cerrar")
+            if (mensaje != null) {
+                showMessageDialog = mensaje
+                viewModel.limpiarMensaje()
+            }
+
+            if (showMessageDialog != null) {
+                AlertDialog(
+                    onDismissRequest = { showMessageDialog = null },
+                    title = { Text("Aviso") },
+                    text = { Text(showMessageDialog ?: "") },
+                    confirmButton = {
+                        TextButton(onClick = { showMessageDialog = null }) {
+                            Text("Aceptar")
                         }
                     }
-                ) {
-                    Text(it)
-                }
+                )
             }
         }
     }

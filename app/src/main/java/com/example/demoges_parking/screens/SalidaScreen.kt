@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -116,8 +118,8 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
     viewModel.actualizarEmpleadoSalida(nombreSessoion)
     viewModel.actuelizarTUrnoSalida(turnoSession)
 
-    val snackbarHostState = remember { SnackbarHostState() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    var showMessageDialog by remember { mutableStateOf<String?>(null) }
 
     val precio12Formateado = tarifa?.precio12h?.let {
         NumberFormat.getNumberInstance(Locale.US).format(it)
@@ -152,7 +154,7 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
     LaunchedEffect(message) {
         message?.let {
             coroutineScope.launch {
-                snackbarHostState.showSnackbar(it)
+                showMessageDialog = it
                 viewModel.limpiarMensaje()
             }
         }
@@ -179,9 +181,7 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
                 }
             )
         },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        }
+
     ){ innerPadding ->
         Column (
             modifier = Modifier.fillMaxSize()
@@ -333,19 +333,22 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
             SpacerH(15.dp)
             OutlinedTextField(
                 value = numerorecibo.toString(),
-                onValueChange = { input ->
-                    // Validamos que el input sea numérico (opcional, pero el teclado ya ayuda)
-                    if (input.all { it.isDigit() } || input.isEmpty()) {
-                        viewModel.actualizarNumeroRecibo(input)
-                    }
+                onValueChange = {
+                    viewModel.actualizarNumeroRecibo(it.trim())
                 },
-                label = {Text("Número de recibo")},
+                label = { Text("Número de recibo") },
+                placeholder = { Text("Ingrese número de recibo") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Number, // Solo teclado numérico
+                    keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
+                keyboardActions = KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                ),
+                singleLine = true
             )
+
             SpacerH(15.dp)
             Text("Descuento: $$descuento")
             SpacerH(15.dp)
@@ -446,6 +449,11 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
                 },
                 enabled = !turnoFinalizado,
                 modifier = Modifier.fillMaxWidth()
+                    .size(50.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 18.sp, // 👈 Tamaño aumentado
+                    fontWeight = FontWeight.Bold
+                )
             )
             SpacerH(15.dp)
 
@@ -455,7 +463,7 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
             val salida = salidaImpresion  // copia local estable
             AlertDialog(
                 onDismissRequest = { viewModel.cerrarDialogo() },
-                title = { Text("Salida registrada") },
+                title = { Text("Salida exitosa") },
                 text = { Text("¿Desea imprimir la tirilla?") },
                 confirmButton = {
                     TextButton(onClick = {
@@ -481,5 +489,19 @@ fun SalidaScreen(navController: NavController, sessionViewModel: SessionViewMode
                 }
             )
         }
+
+        if (showMessageDialog != null) {
+            AlertDialog(
+                onDismissRequest = { showMessageDialog = null },
+                title = { Text("Aviso") },
+                text = { Text(showMessageDialog ?: "") },
+                confirmButton = {
+                    TextButton(onClick = { showMessageDialog = null }) {
+                        Text("Aceptar")
+                    }
+                }
+            )
+        }
+
     }
 }

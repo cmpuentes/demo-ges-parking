@@ -2,8 +2,10 @@ package com.example.demoges_parking.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -53,8 +57,11 @@ import com.example.demoges_parking.viewmodels.SessionViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewModel = viewModel(), sessionViewModel: SessionViewModel){
-
+fun HistorialScreen(
+    navController: NavController,
+    viewModel: HistorialTurnoViewModel = viewModel(),
+    sessionViewModel: SessionViewModel
+) {
     val ingresos by viewModel.ingresos.collectAsState()
     val salidas by viewModel.salidas.collectAsState()
     val totalIngresos by viewModel.totalIngresos.collectAsState()
@@ -63,20 +70,31 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
     val sessionData by sessionViewModel.sessionData.collectAsState()
 
     val numeroTurno = sessionData.numeroTurno
-
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedTabIndex by remember { mutableStateOf(0) } // 0 = Ingresos, 1 = Salidas
-
     val tabTitles = listOf("Ingresos", "Salidas")
 
+    // Estado del filtro
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filtrado dinámico según el tab
+    val filteredIngresos = ingresos.filter {
+        it.placa.contains(searchQuery, ignoreCase = true)
+    }
+
+    val filteredSalidas = salidas.filter {
+        it.placa.contains(searchQuery, ignoreCase = true)
+    }
+
+    // Cargar historial al iniciar
     LaunchedEffect(numeroTurno) {
-        if (numeroTurno != 0) { // Asegúrate que ya esté disponible
+        if (numeroTurno != 0) {
             viewModel.obtenerHistorial(numeroTurno)
         }
     }
 
-    // Escuchar mensajes para Snackbar
+    // Escuchar mensajes del ViewModel
     LaunchedEffect(Unit) {
         viewModel.uiMessage.collect { msg ->
             when (msg) {
@@ -97,10 +115,13 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
                 navigationIcon = {
                     IconButton(onClick = {
                         navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.HISTORIAL) { inclusive = true } // ✅ limpia el backstack
+                            popUpTo(Routes.HISTORIAL) { inclusive = true }
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"
+                        )
                     }
                 }
             )
@@ -108,32 +129,54 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
 
-        Column(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
 
+            // Tabs superiores
             TabRow(selectedTabIndex = selectedTabIndex) {
                 tabTitles.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = {
+                            selectedTabIndex = index
+                            searchQuery = "" // limpiar búsqueda al cambiar de tab
+                        },
                         text = { Text(title) }
                     )
                 }
             }
 
-            // CONTENIDO DINÁMICO SEGÚN EL TAB SELECCIONADO
-            // Lo haremos en la siguiente sección...
+            // Campo de búsqueda
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it.uppercase() },
+                label = { Text("Buscar por placa") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Buscar")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Contenido según tab
             when (selectedTabIndex) {
                 0 -> {
-                    // Tab Ingresos
+                    // INGRESOS
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 32.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(top = 32.dp)
+                        )
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // Card con total de ingresos
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -141,15 +184,14 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
                                 elevation = CardDefaults.cardElevation(6.dp)
                             ) {
                                 Text(
-                                    text = "Total ingresos: $totalIngresos",
+                                    text = "Total ingresos: ${filteredIngresos.size}",
                                     modifier = Modifier.padding(16.dp),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
 
-                            // Lista de ingresos
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                items(ingresos) { ingreso ->
+                                items(filteredIngresos) { ingreso ->
                                     IngresoItem(ingreso)
                                 }
                             }
@@ -158,14 +200,15 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
                 }
 
                 1 -> {
-                    // Tab Salidas
+                    // SALIDAS
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 32.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(top = 32.dp)
+                        )
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // Card con total de salidas
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -173,15 +216,14 @@ fun HistorialScreen(navController: NavController, viewModel: HistorialTurnoViewM
                                 elevation = CardDefaults.cardElevation(6.dp)
                             ) {
                                 Text(
-                                    text = "Total salidas: $totalSalidas",
+                                    text = "Total salidas: ${filteredSalidas.size}",
                                     modifier = Modifier.padding(16.dp),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
 
-                            // Lista de salidas
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                items(salidas.filterNotNull()) { salida ->
+                                items(filteredSalidas.filterNotNull()) { salida ->
                                     SalidaItem(salida)
                                 }
                             }
@@ -279,5 +321,4 @@ fun SalidaItem(salida:SalidaDTO, printSalidaViewModel: PrintSalidaViewModel = vi
             }
         }
     }
-
 }

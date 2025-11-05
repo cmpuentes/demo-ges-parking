@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -221,6 +222,7 @@ fun LoginScreen(navController: NavController) {
                     },
                     enabled = true,
                     modifier = Modifier.fillMaxWidth()
+                        .size(50.dp)
                 )
             }
         }
