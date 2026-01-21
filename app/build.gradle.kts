@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.demoges_parking"
+    namespace = "com.gesnnova.demoges_parking"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.demoges_parking"
+        applicationId = "com.gesnnova.demoges_parking"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
