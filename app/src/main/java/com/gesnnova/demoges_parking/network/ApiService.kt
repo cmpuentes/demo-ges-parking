@@ -7,6 +7,7 @@ import com.gesnnova.demoges_parking.model.CierreRegistroRequest
 import com.gesnnova.demoges_parking.model.CierreRegistroResponse
 import com.gesnnova.demoges_parking.model.CierreRequest
 import com.gesnnova.demoges_parking.model.CierreResult
+import com.gesnnova.demoges_parking.model.ClientePrepagoDTO
 import com.gesnnova.demoges_parking.model.ConsultaVehiculoResult
 import com.gesnnova.demoges_parking.model.GenericResponseSesion
 import com.gesnnova.demoges_parking.model.HistorialTurnoResult
@@ -41,7 +42,11 @@ interface ApiService {
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
     @GET("/cliente/prepago/{placa}")
-    suspend fun consultarClientePrepago(@Path("placa") placa: String): ResponseBody
+    suspend fun consultarClientePrepago(@Path("placa") placa: String): ClientePrepagoDTO
+
+    // Nuevo para autocompletado
+    @GET("/cliente/autocompletar")
+    suspend fun autocompletarPlaca(@Query("q") q: String): ResponseBody
 
     @GET("/api/catalogos/tipos-vehiculo")//Cambiar el endpoint para volver al estado original
     suspend fun obtenerTiposVehiculo(): List<String>

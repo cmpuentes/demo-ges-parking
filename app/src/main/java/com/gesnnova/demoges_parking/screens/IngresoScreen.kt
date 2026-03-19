@@ -88,6 +88,7 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
         }
     )
 
+    val placaFieldValue by ingresoViewModel.placaFieldValue.collectAsState()
     val ingresoRequest by ingresoViewModel.ingresoRequest.collectAsState()
     val sessionData by sessionViewModel.sessionData.collectAsState()
 
@@ -192,23 +193,32 @@ fun IngresoScreen(navController: NavController, sessionViewModel: SessionViewMod
             horizontalAlignment = Alignment.CenterHorizontally
         ){
             OutlinedTextField(
-                value = ingresoRequest.placa,
+                value = placaFieldValue,
                 onValueChange = { input ->
-                    // Eliminar todos los espacios
-                    val placaSinEspacios = input.replace(" ", "").uppercase()
-                    ingresoViewModel.actualizarPlaca(placaSinEspacios)
+                    val textoLimpio = input.text.replace(" ", "").uppercase()
+                    val nuevoValue = input.copy(text = textoLimpio)
+                    ingresoViewModel.actualizarPlacaConCursor(nuevoValue)
 
-                    if (placaSinEspacios.length >= 6) { // o 5 según tu criterio
-                        ingresoViewModel.consultarClientePrepago(placaSinEspacios)
+                    // Si borra por debajo de 3 caracteres, resetear para permitir nuevo autocompletado
+                    if (textoLimpio.length < 3) {
+                        ingresoViewModel.resetearAutocompletado()
+                    }
+
+                    // Autocompletado a partir del tercer carácter
+                    if (textoLimpio.length >= 3) {
+                        ingresoViewModel.autocompletarPlaca(textoLimpio)
+                    }
+
+                    // Consulta prepago a partir del sexto carácter
+                    if (textoLimpio.length >= 6) {
+                        ingresoViewModel.consultarClientePrepago(textoLimpio)
                     }
                 },
-                label = {Text("Placa")},
+                label = { Text("Placa") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(
-                    onDone = {
-                        keyboardController?.hide()
-                    }
+                    onDone = { keyboardController?.hide() }
                 )
             )
 

@@ -2,6 +2,8 @@ package com.gesnnova.demoges_parking.viewmodels
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gesnnova.demoges_parking.model.IngresoData
@@ -18,6 +20,19 @@ class IngresoVieModel(
     private val api: ApiService,
     application: Application
 ) : AndroidViewModel(application){
+
+    var autocompletadoAplicado = false
+        private set
+
+    //Esto es para la placa con cursor
+    private val _placaFieldValue = MutableStateFlow(TextFieldValue(""))
+    val placaFieldValue: StateFlow<TextFieldValue> = _placaFieldValue
+
+    fun actualizarPlacaConCursor(value: TextFieldValue) {
+        _placaFieldValue.value = value
+        // Sincronizar con ingresoRequest para no romper la lógica existente
+        actualizarPlaca(value.text)
+    }
 
     private val _ingresoRequest = MutableStateFlow(IngresoRequest())
     val ingresoRequest: StateFlow<IngresoRequest> = _ingresoRequest
@@ -133,14 +148,52 @@ class IngresoVieModel(
         viewModelScope.launch {
             try {
                 val response = api.consultarClientePrepago(placa)
-                val cliente = response.string()  // ← Aquí ya tienes el texto plano
-                Log.d("IngresoViewModel", "Cliente recibido: $cliente")
+                val cliente = response.cliente.trim().uppercase()
+                val tipoVehiculo = response.tipoVehiculo.trim().uppercase()
+
                 actualizarCliente(cliente)
+
+                if (!cliente.equals("No prepago", ignoreCase = true)) {
+                    actualizarTipoServicio("PREPAGO")
+                    if (tipoVehiculo.isNotEmpty()) {
+                        actualizarTipoVehiculo(tipoVehiculo)
+                    }
+                } else {
+                    actualizarTipoServicio("GENERAL")
+                    actualizarTipoVehiculo("")
+                }
+
             } catch (e: Exception) {
                 Log.e("IngresoViewModel", "Error al consultar prepago", e)
                 _uiMessage.send(UiMessage.Error("Error al consultar prepago"))
             }
         }
+    }
+
+    fun autocompletarPlaca(input: String) {
+        if (autocompletadoAplicado) return
+
+        viewModelScope.launch {
+            try {
+                val respuesta = api.autocompletarPlaca(input).string().trim().uppercase()
+                if (respuesta.isNotEmpty() && respuesta != input) {
+                    autocompletadoAplicado = true
+                    // Actualizar con cursor al final
+                    _placaFieldValue.value = TextFieldValue(
+                        text = respuesta,
+                        selection = TextRange(respuesta.length) // cursor al final
+                    )
+                    actualizarPlaca(respuesta)
+                    consultarClientePrepago(respuesta)
+                }
+            } catch (e: Exception) {
+                Log.e("IngresoViewModel", "Error en autocompletado", e)
+            }
+        }
+    }
+
+    fun resetearAutocompletado() {
+        autocompletadoAplicado = false
     }
 
     fun cargarTiposVehiculo() {
@@ -158,7 +211,7 @@ class IngresoVieModel(
             try{
                 _tiposServicio.value = api.obtenerTiposServicio()
             }catch (e: Exception){
-                _uiMessage.send(UiMessage.Error("Error al cargar tipos de vehículo"))
+                _uiMessage.send(UiMessage.Error("Error al cargar tipos de servicio"))
             }
         }
     }
